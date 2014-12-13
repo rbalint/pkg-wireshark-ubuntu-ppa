@@ -24,3 +24,14 @@ diff -Naur wireshark-1.12.1+g01b65bf.orig/debian/control wireshark-1.12.1+g01b65
   libgcrypt-dev, portaudio19-dev, libkrb5-dev, liblua5.2-dev, libsmi2-dev,
   libgeoip-dev, dpkg-dev (>= 1.16.1~), imagemagick, xdg-utils,
   libnl-genl-3-dev [linux-any], libnl-route-3-dev [linux-any], asciidoc, cmake, w3m
+--- wireshark-1.12.1+g01b65bf.orig/debian/rules	2014-12-13 12:37:20.871292126 +0100
++++ wireshark-1.12.1+g01b65bf/debian/rules	2014-12-13 12:37:34.603129934 +0100
+@@ -19,7 +19,7 @@
+ override_dh_auto_configure:
+ 	dh_auto_configure -- -DENABLE_GUIDES=ON \
+ 		-DCMAKE_INSTALL_LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH) \
+-	# -DENABLE_QT5=OFF
++	-DENABLE_QT5=OFF
+ 
+ override_dh_auto_build:
+ 	dh_auto_build
