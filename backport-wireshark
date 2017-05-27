@@ -1,0 +1,84 @@
+#!/bin/bash
+
+set -e
+
+DSC=$1
+
+VERSION=$(echo $DSC | sed 's/.*wireshark_//;s/.dsc//')
+DIR=$(dpkg-source -x $DSC  | awk '/extracting wireshark in/ {print $6}')
+
+# back-port to squeeze-lts
+if echo $VERSION | grep wheezy > /dev/null; then
+    cd $DIR
+    echo 8 > debian/compat
+    sed -i 's/debhelper (>= 9)/debhelper (>= 8)/;s/dpkg-dev [^,]*/hardening-wrapper/' debian/control
+    patch debian/rules <<EOF
+@@ -5,10 +5,10 @@
+ 
+ # Uncomment this to turn on verbose mode.
+ #export DH_VERBOSE=1
+-export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+-DPKG_EXPORT_BUILDFLAGS = 1
+-include /usr/share/dpkg/buildflags.mk
+ 
++# Use hardening wrapper
++export DEB_BUILD_HARDENING=1
++
+ DB2MAN=/usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl
+EOF
+    EDITOR=touch dch -b --force-distribution -v$VERSION~deb6u1 -D squeeze-lts -u high
+    sed -i 's/\* $/* Rebuild for Squeeze LTS/' debian/changelog
+    dpkg-buildpackage -S -d -us -uc
+    cd ..
+    rm -rf $DIR
+    exit 0
+fi
+
+# Jessie
+dpkg-source -x $DSC
+cd $DIR
+EDITOR=touch dch --bpo
+mv debian/changelog debian/changelog.orig
+grep -v '  \* $' debian/changelog.orig > debian/changelog
+rm debian/changelog.orig
+dpkg-buildpackage -S -d -us -uc -v"1.12.1+g01b65bf-4+deb8u2"
+cd ..
+rm -rf $DIR
+
+# Trusty
+dpkg-source -x $DSC
+cd $DIR
+patch -p1 < debian/patches/backport-to-old-gnutls.patch
+sed -i 's/, libssh-gcrypt-dev//' debian/control
+EDITOR=touch dch -b --force-distribution -v$VERSION~trusty1 -D trusty
+dch -a "Rebuild for Trusty"
+sed -i 's/\* $/* Use GnuTLS available in Trusty, drop libssh support/' debian/changelog
+dpkg-buildpackage -S -d -us -uc -sa
+cd ..
+rm -rf $DIR
+
+# Precise
+dpkg-source -x $DSC
+cd $DIR
+patch -p1 < debian/patches/backport-to-old-gnutls.patch
+patch -p1 < debian/patches/backport-to-qt4.patch
+sed -i 's/ dh-python,//;s/w3m,//;s/libsbc-dev/w3m/' debian/control
+sed -i 's/ cmake,/cmake (>= 2.8.8),/' debian/control
+sed -i 's/, libssh-gcrypt-dev//' debian/control
+EDITOR=touch dch -b --force-distribution -v$VERSION~precise1 -D precise
+sed -i 's/hardening=.all/hardening=+all-pie/' debian/rules
+dch -a "Rebuild for Precise"
+sed -i 's/\* $/* Use Qt4 and GnuTLS available in Precise, also drop dh-python, libssh,  libsbc and disable PIE/' debian/changelog
+dpkg-buildpackage -S -d -us -uc -sa
+cd ..
+rm -rf $DIR
+
+for DIST in vivid xenial yakkety zesty; do
+    dpkg-source -x $DSC
+    cd $DIR
+    EDITOR=touch dch -b --force-distribution -v$VERSION~${DIST}1 -D ${DIST}
+    sed -i 's/\* $/* Rebuild for '${DIST^}'/' debian/changelog
+    dpkg-buildpackage -S -d -us -uc
+    cd ..
+    rm -rf $DIR
+done
