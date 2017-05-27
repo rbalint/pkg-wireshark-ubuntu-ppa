@@ -7,33 +7,6 @@ DSC=$1
 VERSION=$(echo $DSC | sed 's/.*wireshark_//;s/.dsc//')
 DIR=$(dpkg-source -x $DSC  | awk '/extracting wireshark in/ {print $6}')
 
-# back-port to squeeze-lts
-if echo $VERSION | grep wheezy > /dev/null; then
-    cd $DIR
-    echo 8 > debian/compat
-    sed -i 's/debhelper (>= 9)/debhelper (>= 8)/;s/dpkg-dev [^,]*/hardening-wrapper/' debian/control
-    patch debian/rules <<EOF
-@@ -5,10 +5,10 @@
- 
- # Uncomment this to turn on verbose mode.
- #export DH_VERBOSE=1
--export DEB_BUILD_MAINT_OPTIONS = hardening=+all
--DPKG_EXPORT_BUILDFLAGS = 1
--include /usr/share/dpkg/buildflags.mk
- 
-+# Use hardening wrapper
-+export DEB_BUILD_HARDENING=1
-+
- DB2MAN=/usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl
-EOF
-    EDITOR=touch dch -b --force-distribution -v$VERSION~deb6u1 -D squeeze-lts -u high
-    sed -i 's/\* $/* Rebuild for Squeeze LTS/' debian/changelog
-    dpkg-buildpackage -S -d -us -uc
-    cd ..
-    rm -rf $DIR
-    exit 0
-fi
-
 # Jessie
 dpkg-source -x $DSC
 cd $DIR
