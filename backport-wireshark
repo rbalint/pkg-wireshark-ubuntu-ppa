@@ -4,41 +4,24 @@ set -e
 
 DSC=$1
 
-VERSION=$(echo $DSC | sed 's/.*wireshark_//;s/.dsc//')
-DIR=wireshark-backport-src
+PACKAGE=$(basename $DSC | sed 's/_.*//')
+VERSION=$(basename $DSC | sed 's/[^_]*_//;s/.dsc$//')
+DIR=${PACKAGE}-backport-src
 POCKET=${2:-}
 COMMENT="${3:-}"
-[ -n "$POCKET" ] || VERSION_APPEND=+wiresharkdevstable1
+[ -n "$POCKET" ] || VERSION_APPEND=~ppa1
 
-for DIST in jessie trusty xenial bionic cosmic; do
+for DIST in jammy noble plucky questing resolute; do
+    DIST_VER="$(distro-info --series $DIST -r | cut -d" " -f1)"
     dpkg-source -x $DSC $DIR
     pushd $DIR
     case $DIST in
-        trusty)
-            sed -i 's/libgnutls28-dev[^,]*,/libgnutls-dev,/' debian/control
-            grep -v mmdbresolve debian/wireshark-common.manpages > debian/wireshark-common.manpages.new
-            mv debian/wireshark-common.manpages.new debian/wireshark-common.manpages
-            grep -v mmdbresolve debian/wireshark-common.install > debian/wireshark-common.install.new
-            mv debian/wireshark-common.install.new debian/wireshark-common.install
-            sed -i 's/wireshark-qt | wireshark-gtk/wireshark-gtk, wireshark-qt/' debian/control
-            sed -i 's/libqt5multimedia5-plugins/libqt5multimedia5-plugins, gtk2-engines-oxygen/' debian/control
-            sed -i 's/ libssh-gcrypt-dev,//;s/ libmaxminddb-dev,//;s/ libnghttp2-dev,//' debian/control
-            env EDITOR=touch dch -b --force-distribution -v$VERSION~ubuntu$(distro-info --series $DIST -r | cut -d" " -f1).0${VERSION_APPEND} -D ${DIST}${POCKET}
-            dch -a "Rebuild for Trusty$COMMENT"
-            if [ "$POCKET" = -security ]; then
-                sed -i 's/\* $/* Use GnuTLS available in Trusty\n  * Make wireshark depend on both wireshark-gtk and wireshark-qt\n  * Revert installing mmdbresolve since it is not shipped in Trusty\n  * Recommend gtk2-engines-oxygen to avoid Qt interface crash on exit\n    (LP: #1803808)\n  * Drop build dependencies disabling relevant features:\n    libssh-gcrypt-dev, libmaxminddb-dev and libnghttp2-dev/' debian/changelog
-            else
-                sed -i 's/\* $/* Use GnuTLS available in Trusty/' debian/changelog
-            fi
-            dpkg-buildpackage -S -d -us -uc -sa -v$(rmadison -u ubuntu wireshark | grep $DIST | cut -d' ' -f4 | tail -n1 | sed 's/~ubuntu1.\...\..$//') --changes-option=-DDistribution=${DIST}
-            sed -i 's/ 1803808//' ../wireshark_*~ubuntu14.04.0_source.changes
-            ;;
         *)
-            [ $DIST = xenial ] && sed -i 's/wireshark-qt | wireshark-gtk/wireshark-gtk, wireshark-qt/' debian/control || true
-            env EDITOR=touch dch -b --force-distribution -v$VERSION~ubuntu$(distro-info --series $DIST -r | cut -d" " -f1).0${VERSION_APPEND} -D ${DIST}${POCKET}
-            [ $DIST = xenial ] && sed -i 's/\* $/* \n  * Make wireshark depend on both wireshark-gtk and wireshark-qt/' debian/changelog
+            env EDITOR=touch dch -b --force-distribution -v$VERSION~ubuntu${DIST_VER}.0${VERSION_APPEND} -D ${DIST}${POCKET}
             sed -i 's/\* $/* Rebuild for '${DIST^}"$COMMENT"/ debian/changelog
-            dpkg-buildpackage -S -d -us -uc -v$(rmadison -u ubuntu wireshark | grep $DIST | cut -d' ' -f4 | tail -n1 | sed 's/~ubuntu1.\...\..$//') --changes-option=-DDistribution=${DIST}
+            PRIOR_VERSION=$(rmadison -u ubuntu ${PACKAGE} | grep $DIST | cut -d' ' -f4 | tail -n1 | sed 's/~ubuntu1.\...\..$//')
+            [ -n "${PRIOR_VERSION}" ] || PRIOR_VERSION=0
+            dpkg-buildpackage -S -d -us -uc -sa -v${PRIOR_VERSION} --changes-option=-DDistribution=${DIST}
             ;;
     esac
     popd
