@@ -2,6 +2,12 @@
 
 set -e
 
+if [ $# -lt 1 ]; then
+    echo "Backport a Debian wireshark source package to supported Ubuntu releases."
+    echo "Usage: $0 <source.dsc> [pocket] [comment]"
+    exit 1
+fi
+
 DSC=$1
 
 PACKAGE=$(basename $DSC | sed 's/_.*//')
