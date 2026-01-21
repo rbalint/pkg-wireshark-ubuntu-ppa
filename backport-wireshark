@@ -11,7 +11,7 @@ POCKET=${2:-}
 COMMENT="${3:-}"
 [ -n "$POCKET" ] || VERSION_APPEND=~ppa1
 
-for DIST in jammy noble plucky questing resolute; do
+for DIST in $(ubuntu-distro-info --supported); do
     DIST_VER="$(distro-info --series $DIST -r | cut -d" " -f1)"
     dpkg-source -x $DSC $DIR
     pushd $DIR
